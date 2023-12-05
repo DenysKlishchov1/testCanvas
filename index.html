@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Circles</title>
+		
+		<style>
+			html, body {
+				width:  100%;
+				height: 100%;
+				margin: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="canvas"></canvas>
+		<input value="Reset" onclick="reset()" type="button">
+		<input value="About" onclick="about()" type="button">
+
+		<script>
+			var shapeController = {
+				width: 0,
+				height: 0,
+				points: [],
+				circles: [],
+                intersections: [],
+				mouseDownOnPoint: -1,
+				mousePointOffset: 0,
+				
+				init: function(){
+					this.canvas = document.getElementById("canvas");
+					this.ctx = canvas.getContext("2d");
+					this.width = this.canvas.width  = window.innerWidth - 20;
+					this.height = this.canvas.height = window.innerHeight - 50;			
+					this.ctx.font = 'bold 20px Comic Sans';
+					this.canvas.addEventListener('mousedown', this.mousedownEventListener, false);
+					this.canvas.addEventListener('mousemove', this.mousemoveEventListener, false);
+					this.canvas.addEventListener('mouseup', this.mouseupEventListener, false);
+
+					this.points = [];
+					this.circles = [];
+                    this.intersections = [];
+				},
+
+				mousedownEventListener: function(event){
+					var x = event.pageX,
+					y = event.pageY;
+					
+					shapeController.points.forEach(function(point, i) {
+						if (Math.sqrt((x-point.posx)*(x-point.posx) + (y-point.posy)*(y-point.posy)) < point.radius * 2) {
+							shapeController.mouseDownOnPoint = i;
+						}
+					});
+
+					if(shapeController.mouseDownOnPoint != -1){
+						mousePointOffset = {
+							x: shapeController.points[shapeController.mouseDownOnPoint].posx - x,
+							y: shapeController.points[shapeController.mouseDownOnPoint].posy - y,
+						};
+						shapeController.movePoint(event);
+					}
+					else if(shapeController.points.length < 4){
+						shapeController.addNewPoint(event);
+
+						if(shapeController.points.length == 4)
+							shapeController.addFiguresInfo();
+
+						shapeController.render();
+					}
+				},
+
+				mousemoveEventListener: function(event){
+					shapeController.movePoint(event);
+				},
+
+				mouseupEventListener: function(event){
+					shapeController.movePoint(event);
+					shapeController.mouseDownOnPoint = -1;
+				},
+
+				addNewPoint: function(event) {
+					this.points.push({
+						posx: event.pageX,
+						posy: event.pageY,
+						radius: 5,
+						color: 'black'
+					});
+				},
+
+				movePoint: function(event){
+					if(shapeController.mouseDownOnPoint != -1){
+						shapeController.points[shapeController.mouseDownOnPoint].posx = event.pageX + mousePointOffset.x;
+						shapeController.points[shapeController.mouseDownOnPoint].posy = event.pageY + mousePointOffset.y;
+
+						if(shapeController.points.length == 4)
+                        {
+                            this.circles = [];
+                            this.intersections = [];
+                            shapeController.addFiguresInfo();        
+                        }
+						shapeController.render();
+					}
+				},
+
+				addFiguresInfo: function() {
+					this.addCircleInfo("yellow", 0, 1);
+                    this.addCircleInfo("blue", 2, 3);
+				},
+
+				addCircleInfo: function(color, index1, index2) {
+                    console.log(Math.sqrt(Math.pow(this.points[index2].posx - this.points[index1].posx, 2) + Math.pow(this.points[index2].posy - this.points[index1].posy, 2)))
+					this.circles.push({
+						color: color,
+						radius: Math.sqrt(Math.pow(this.points[index2].posx - this.points[index1].posx, 2) + Math.pow(this.points[index2].posy - this.points[index1].posy, 2)),
+						point: {
+							posx: this.points[index1].posx,
+							posy: this.points[index1].posy,
+						}			
+					});
+				},
+                
+                findCircleIntersections: function (circle1, circle2) {
+                    var d = Math.sqrt(Math.pow(circle2.point.posx - circle1.point.posx, 2) + Math.pow(circle2.point.posy - circle1.point.posy, 2));
+
+                    if (d > circle1.radius + circle2.radius || d < Math.abs(circle1.radius - circle2.radius)) {
+                        return;
+                    }
+
+                    var a = (Math.pow(circle1.radius, 2) - Math.pow(circle2.radius, 2) + Math.pow(d, 2)) / (2 * d);
+                    var h = Math.sqrt(Math.pow(circle1.radius, 2) - Math.pow(a, 2));
+
+                    var x2 = circle1.point.posx + (a / d) * (circle2.point.posx - circle1.point.posx);
+                    var y2 = circle1.point.posy + (a / d) * (circle2.point.posy - circle1.point.posy);
+
+                    var intersection1 = {
+                        posx: x2 + (h / d) * (circle2.point.posy - circle1.point.posy),
+                        posy: y2 - (h / d) * (circle2.point.posx - circle1.point.posx),
+                    };
+
+                    var intersection2 = {
+                        posx: x2 - (h / d) * (circle2.point.posy - circle1.point.posy),
+                        posy: y2 + (h / d) * (circle2.point.posx - circle1.point.posx),
+                    };
+
+                    this.intersections.push(intersection1);
+                    this.intersections.push(intersection2);
+                },
+                    
+
+				render: function() {
+					this.ctx.fillStyle = "#d8ebeb";
+					this.ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+					shapeController.points.forEach(function(point) {
+						shapeController.ctx.strokeStyle = point.color;
+						shapeController.ctx.beginPath();
+						shapeController.ctx.arc(point.posx, point.posy, point.radius, 0, 2*Math.PI);
+						shapeController.ctx.stroke();
+
+						var str = '(' + point.posx + ', ' + point.posy + ')';
+						shapeController.ctx.fillStyle = "black";
+						shapeController.ctx.fillText(str, point.posx - str.length / 2 * 18, point.posy - 20);
+					});
+
+					shapeController.circles.forEach(function(circle) {
+                        shapeController.ctx.strokeStyle = circle.color;
+						shapeController.ctx.beginPath();
+						shapeController.ctx.arc(circle.point.posx, circle.point.posy, circle.radius, 0, 2*Math.PI);
+						shapeController.ctx.stroke();
+                    });
+                    
+                    shapeController.findCircleIntersections(shapeController.circles[0], shapeController.circles[1]);
+
+                    shapeController.intersections.forEach(function(intersection) {
+                        console.log(intersection);
+						shapeController.ctx.strokeStyle = "black";
+						shapeController.ctx.beginPath();
+						shapeController.ctx.arc(intersection.posx, intersection.posy, 5, 0, 2*Math.PI);
+						shapeController.ctx.stroke();
+
+						var str = '(' + intersection.posx + ', ' + intersection.posy + ')';
+						shapeController.ctx.fillStyle = "black";
+						shapeController.ctx.fillText(str, intersection.posx - str.length / 2 * 18, intersection.posy - 20);
+					});
+
+				},
+				
+				start: function(){
+					this.init();
+					this.render();
+				}
+			};
+
+			window.addEventListener("load",	function(){ shapeController.start(); });
+
+			function reset() {
+				shapeController.start();
+			}
+
+			function about() {			
+				alert(
+					"about"
+					);
+			}
+
+		</script>
+	</body>
+</html>
